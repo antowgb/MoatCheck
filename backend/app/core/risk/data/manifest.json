@@ -1,0 +1,121 @@
+{
+  "data_source": "Yahoo Finance chart endpoint, historical daily close/adjusted close snapshots",
+  "retrieved_on": "2026-10-16",
+  "artifact_sha256": {
+    "covid-2020.csv": "e491bf19524af1e6afc02dd8ce819077658b476d944c07a78b6832245bd03024",
+    "lehman-2008.csv": "8c30a6368fe1006177d2a610472bbc4b337aa339b1bf8f08aee8f79ef6aa3611"
+  },
+  "calculation": "simple close-to-close return, adjusted closes for ETFs; returns start on scenario start using the preceding available close as base",
+  "calendar": "US equity sessions; BTC-USD is sampled at the same UTC date labels and weekend moves are folded into next US-session return",
+  "limitations": [
+    "BTC did not have a traded market during the 2008 Lehman window and is intentionally absent.",
+    "VT is a total-world equity ETF proxy in 2008, not an MSCI World index history.",
+    "URTH is an MSCI World ETF proxy in 2020; it is not the licensed MSCI index series.",
+    "IEF proxies intermediate 7-10 year US Treasury total returns, not the full Treasury market index.",
+    "S&P 500 series is the price index and excludes dividends; ETF adjusted closes include distributions."
+  ],
+  "scenarios": [
+    {
+      "id": "lehman-2008",
+      "title": "2008 Global Financial Crisis \u00b7 Lehman collapse",
+      "start": "2008-09-15",
+      "end": "2008-11-20",
+      "base_date": "2008-09-12",
+      "observations": 49,
+      "file": "lehman-2008.csv",
+      "assets": [
+        "SP500",
+        "VT",
+        "IEF"
+      ],
+      "summary": {
+        "SP500": {
+          "cumulative_return": -0.39886551746131194,
+          "worst_daily_return": -0.0903497780862258
+        },
+        "VT": {
+          "cumulative_return": -0.41001778502139097,
+          "worst_daily_return": -0.1213797703919941
+        },
+        "IEF": {
+          "cumulative_return": 0.05351692445548539,
+          "worst_daily_return": -0.017838533183052174
+        }
+      }
+    },
+    {
+      "id": "covid-2020",
+      "title": "2020 COVID-19 market shock",
+      "start": "2020-02-19",
+      "end": "2020-04-30",
+      "base_date": "2020-02-18",
+      "observations": 51,
+      "file": "covid-2020.csv",
+      "assets": [
+        "SP500",
+        "URTH",
+        "IEF",
+        "BTC-USD"
+      ],
+      "summary": {
+        "SP500": {
+          "cumulative_return": -0.1358518412703842,
+          "worst_daily_return": -0.11984055240393443
+        },
+        "URTH": {
+          "cumulative_return": -0.150250879887193,
+          "worst_daily_return": -0.11377610918903758
+        },
+        "IEF": {
+          "cumulative_return": 0.07472658907241359,
+          "worst_daily_return": -0.025072514051142303
+        },
+        "BTC-USD": {
+          "cumulative_return": -0.14626729976031838,
+          "worst_daily_return": -0.37169538560117077
+        }
+      }
+    }
+  ],
+  "assets": {
+    "SP500": {
+      "label": "S&P 500",
+      "symbol": "^GSPC",
+      "field": "close",
+      "type": "equity_index",
+      "source_url": "https://finance.yahoo.com/quote/%5EGSPC/history/"
+    },
+    "VT": {
+      "label": "Global equity \u00b7 VT proxy",
+      "symbol": "VT",
+      "field": "adjusted_close",
+      "type": "global_equity_proxy",
+      "source_url": "https://finance.yahoo.com/quote/VT/history/",
+      "note": "Vanguard Total World Stock ETF proxy; not the MSCI World index."
+    },
+    "URTH": {
+      "label": "MSCI World \u00b7 URTH ETF",
+      "symbol": "URTH",
+      "field": "adjusted_close",
+      "type": "global_equity",
+      "source_url": "https://finance.yahoo.com/quote/URTH/history/",
+      "note": "iShares MSCI World ETF total-return proxy; not the licensed index series."
+    },
+    "IEF": {
+      "label": "US Treasuries \u00b7 IEF proxy",
+      "symbol": "IEF",
+      "field": "adjusted_close",
+      "type": "treasury_proxy",
+      "source_url": "https://finance.yahoo.com/quote/IEF/history/",
+      "note": "iShares 7-10 Year Treasury Bond ETF adjusted close."
+    },
+    "BTC-USD": {
+      "label": "Bitcoin \u00b7 USD",
+      "symbol": "BTC-USD",
+      "field": "close",
+      "type": "crypto",
+      "source_url": "https://finance.yahoo.com/quote/BTC-USD/history/",
+      "note": "Calendar-day BTC-USD close aligned to US equity sessions."
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# Python
+backend/.venv/
+__pycache__/
+*.pyc
+.coverage
+.coverage.*
+.pytest_cache/
+backend/.env
+**/.env.*
+!**/.env.example
+
+# Node / Next.js
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+backend/static/
+frontend/.env
+frontend/.env.local
+frontend/next-env.d.ts
+frontend/tsconfig.tsbuildinfo
+
+.DS_Store
+refresh_progress.json
+backend/raw_indicators.csv
+
+# V2 qualitative layer — local cache + secrets/tokens (never commit)
+backend/qualitative_cache/
+backend/gmail_credentials.json
+backend/gmail_token.json
+backend/groq_progress.json
+
+# Supabase CLI project-local cache, linked project metadata and temporary URLs.
+supabase/.temp/
