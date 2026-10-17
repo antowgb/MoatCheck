@@ -1,0 +1,28 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+yfinance>=0.2.50
+pandas>=2.2
+beautifulsoup4>=4.12
+# hmmlearn 0.3.3 mutates ndarray.shape, deprecated starting in NumPy 2.5.
+# Keep environments warning-free until hmmlearn publishes a compatible release.
+numpy>=1.26,<2.5
+supabase>=2.6
+python-dotenv>=1.0
+pydantic>=2.7
+pytest>=8.0
+pytest-cov>=5.0
+# Starlette TestClient compatibility and ASGI transport dependencies.
+httpx>=0.27
+httpx2>=0.1
+scipy>=1.11
+statsmodels>=0.14
+scikit-learn>=1.5
+hmmlearn>=0.3.2
+# V2 qualitative layer
+groq>=0.11              # Groq SDK — event classification (JSON mode)
+feedparser>=6.0         # RSS/Atom parsing (IR feeds + generalist press)
+# Gmail newsletter collector (optional at runtime — only needed if the
+# 'newsletter' source flag is enabled; see GMAIL_SETUP.md)
+google-api-python-client>=2.100
+google-auth>=2.30
+google-auth-oauthlib>=1.2

@@ -1,0 +1,56 @@
+services:
+  # Single service: FastAPI serves the API (/api) AND the statically exported Next.js frontend.
+  - type: web
+    name: quant-tool
+    runtime: python
+    plan: free
+    healthCheckPath: /health
+    buildCommand: |
+      set -e
+      cd frontend
+      npm ci
+      npm run build
+      rm -rf ../backend/static
+      cp -r out ../backend/static
+      cd ../backend
+      pip install -r requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SUPABASE_URL
+        sync: false # enter in the Render dashboard
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false # preferred server-only Supabase secret key
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false # legacy fallback until the new secret key is set
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false # optional — see backend/.env.example; falls back to 100% Alpha Vantage if unset
+      - key: ADMIN_API_KEY
+        sync: false # protects POST /api/stocks (X-Admin-Key header) — see .env.example to generate it
+      - key: RESEND_API_KEY
+        sync: false # optional; sends after each saved formal recommendation
+      - key: ADVISOR_EMAIL_FROM
+        sync: false # must be a verified Resend sender
+      - key: MOATCHECK_PUBLIC_URL
+        value: https://moatcheck.onrender.com
+      - key: APP_ENV
+        value: production
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: MAX_REQUEST_BODY_BYTES
+        value: "5000000"
+      - key: API_RATE_LIMIT_PER_MINUTE
+        value: "60"
+      # Aggregate budget for the single Render instance. The per-client
+      # budget above still applies independently to each visitor.
+      - key: GLOBAL_API_RATE_LIMIT_PER_MINUTE
+        value: "300"
+      - key: RATE_LIMIT_TRUST_CF_CONNECTING_IP
+        value: "true"
+      # The exported frontend and API are same-origin. Add exact origins here
+      # only if a separately hosted trusted frontend is introduced.
+      - key: FRONTEND_ORIGINS
+        value: ""

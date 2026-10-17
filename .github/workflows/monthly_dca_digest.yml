@@ -1,0 +1,37 @@
+name: Monthly DCA Advisor Digest
+
+on:
+  schedule:
+    # The first day of each month at 09:00 UTC.
+    - cron: "0 9 1 * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monthly-dca-advisor-digest
+  cancel-in-progress: false
+
+jobs:
+  send-digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Send saved-plan monthly DCA digests
+        working-directory: backend
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ADVISOR_EMAIL_FROM: ${{ secrets.ADVISOR_EMAIL_FROM }}
+          MOATCHECK_PUBLIC_URL: https://moatcheck.onrender.com
+        run: python -m app.services.email_service
