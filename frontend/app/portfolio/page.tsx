@@ -126,16 +126,28 @@ export default function PortfolioPage() {
       setWeights(tickers.length === 1 ? { [tickers[0]]: 1 } : {});
       return;
     }
-    let cancelled = false;
-    setWeightsLoading(true);
-    api.portfolioWeights(tickers)
-      .then((result) => { if (!cancelled) setWeights(result.weights); })
-      .catch(() => { if (!cancelled) setWeights({}); })
-      .finally(() => { if (!cancelled) setWeightsLoading(false); });
-    return () => { cancelled = true; };
+    // New drafts are calculated explicitly to avoid one request per click.
+    setWeightsLoading(false);
+    setWeights({});
   // ticker identity, not array identity, drives the calculation.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickersKey]);
+
+  const calculateWeights = async () => {
+    if (tickers.length < 2 || weightsLoading) return;
+    setWeightsLoading(true);
+    setError(null);
+    try {
+      const result = await api.portfolioWeights(tickers);
+      setWeights(result.weights);
+    } catch (cause) {
+      setWeights({});
+      const message = cause instanceof Error ? cause.message : "Could not calculate the suggested allocation.";
+      setError(message.includes("API 429") ? "Trop de demandes rapprochées. Attendez quelques secondes puis relancez le calcul." : message);
+    } finally {
+      setWeightsLoading(false);
+    }
+  };
 
   const toggleTicker = (ticker: string) => {
     setMessage(null);
@@ -325,6 +337,7 @@ export default function PortfolioPage() {
             <span className="shrink-0 font-mono text-sm text-emerald-200">{weightsLoading ? "Loading…" : Number.isFinite(weights[ticker]) ? `${(weights[ticker] * 100).toFixed(1)}%` : "Pending"}</span>
           </div>)}
         </div>}
+        {tickers.length > 1 && <button type="button" onClick={() => void calculateWeights()} disabled={weightsLoading} className="mt-4 inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-emerald-300/20 bg-emerald-300/[0.06] px-4 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/[0.12] disabled:cursor-not-allowed disabled:opacity-50">{weightsLoading && <LoaderCircle size={14} className="animate-spin" />}{weightsLoading ? "Calculating…" : "Calculate suggested allocation"}</button>}
         <p className="mt-4 text-xs leading-relaxed text-slate-500">Suggested weights use inverse historical volatility as a starting point. Review the assumptions in the Optimizer before making decisions.</p>
         <Link href="/optimizer" className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-emerald-200 hover:text-emerald-100">Open Portfolio Optimizer <ArrowRight size={13} /></Link>
       </Card>

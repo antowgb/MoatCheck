@@ -306,12 +306,23 @@ def stock_details(tickers: str = Query(..., min_length=1, max_length=2_000)) -> 
 @router.get("/stocks")
 def list_stocks() -> list[dict[str, Any]]:
     sb = get_supabase()
-    stocks = _execute_with_retry(
-        # Keep legacy equity rows whose asset_type is NULL. Postgres does not
-        # match NULL with `!= 'etf'`, so a database row can have prices and
-        # still disappear from the portfolio selector.
-        sb.table("stocks").select("*").eq("is_benchmark", False).order("ticker")
-    ).data
+    # Fetch the complete universe in pages; PostgREST commonly caps a response
+    # at 1,000 rows and the picker must not stop at an arbitrary letter.
+    stocks: list[dict[str, Any]] = []
+    page_size = 1000
+    offset = 0
+    while True:
+        page = _execute_with_retry(
+            # Keep legacy equity rows whose asset_type is NULL. Postgres does
+            # not match NULL with `!= 'etf'`.
+            sb.table("stocks").select("*").eq("is_benchmark", False).order("ticker")
+            .range(offset, offset + page_size - 1),
+            context=f"stocks page {offset // page_size + 1}",
+        ).data or []
+        stocks.extend(page)
+        if len(page) < page_size:
+            break
+        offset += page_size
     stocks = [stock for stock in stocks if str(stock.get("asset_type") or "equity").lower() != "etf"]
     tickers = [s["ticker"] for s in stocks]
     scores = _latest_scores_by_ticker(tickers)

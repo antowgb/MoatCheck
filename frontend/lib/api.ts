@@ -987,9 +987,9 @@ export const api = {
     const q = new URLSearchParams({ tickers: tickers.join(",") });
     return request<CorrelationResult>(`/correlation?${q.toString()}`, { signal });
   },
-  portfolioWeights: (tickers: string[]) => {
+  portfolioWeights: (tickers: string[], signal?: AbortSignal) => {
     const q = new URLSearchParams({ tickers: tickers.join(",") });
-    return request<PortfolioWeightsResult>(`/portfolio/weights?${q.toString()}`);
+    return request<PortfolioWeightsResult>(`/portfolio/weights?${q.toString()}`, { signal });
   },
   efficientFrontier: (tickers: string[]) => {
     const q = new URLSearchParams({ tickers: tickers.join(",") });
