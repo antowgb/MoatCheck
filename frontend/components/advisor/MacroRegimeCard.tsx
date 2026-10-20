@@ -13,7 +13,7 @@ const labelText: Record<string, string> = {
 
 export default function MacroRegimeCard({ recommendation }: { recommendation: AdvisorRecommendationResult }) {
   const regime = recommendation.regime;
-  const entries = Object.entries(regime.probability_next_period);
+  const entries = Object.entries(regime.probability_next_period ?? {});
   const thesis = regime.high_volatility_transition_probability >= 0.25
     ? "Recent data points to a greater chance of high volatility continuing. Consider the risk of a larger drop before increasing your exposure."
     : "Recent data does not point to a higher chance of high volatility. This estimate depends on the amount and quality of past data.";

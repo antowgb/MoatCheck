@@ -241,7 +241,7 @@ function StockDetailView() {
                 </h3>
                 <table className="w-full text-sm">
                   <tbody>
-                    {Object.entries(s.score_breakdown.fundamental.components).map(([k, c]) => (
+                    {Object.entries(s.score_breakdown.fundamental.components ?? {}).map(([k, c]) => (
                       <tr key={k} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
                         <td className="py-1 pr-2 text-slate-700 dark:text-slate-300">{label(k)}</td>
                         <td className="py-1 pr-2 text-slate-500 dark:text-slate-500 font-mono">
@@ -254,7 +254,7 @@ function StockDetailView() {
                     ))}
                   </tbody>
                 </table>
-                {s.score_breakdown.fundamental.missing.length > 0 && (
+                {(s.score_breakdown.fundamental.missing ?? []).length > 0 && (
                   <p className="text-xs text-slate-400 dark:text-slate-600 mt-2">
                     Excluded (missing data): {s.score_breakdown.fundamental.missing.map(label).join(", ")}
                   </p>
@@ -268,7 +268,7 @@ function StockDetailView() {
                 </h3>
                 <table className="w-full text-sm">
                   <tbody>
-                    {Object.entries(s.score_breakdown.risk.components).map(([k, v]) => (
+                    {Object.entries(s.score_breakdown.risk.components ?? {}).map(([k, v]) => (
                       <tr key={k} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
                         <td className="py-1 pr-2 text-slate-700 dark:text-slate-300">{label(k)}</td>
                         <td className="py-1 text-right font-medium font-mono text-slate-900 dark:text-slate-100">
@@ -278,7 +278,7 @@ function StockDetailView() {
                     ))}
                   </tbody>
                 </table>
-                {s.score_breakdown.risk.missing.length > 0 && (
+                {(s.score_breakdown.risk.missing ?? []).length > 0 && (
                   <p className="text-xs text-slate-400 dark:text-slate-600 mt-2">
                     Excluded (missing data): {s.score_breakdown.risk.missing.map(label).join(", ")}
                   </p>
@@ -289,7 +289,7 @@ function StockDetailView() {
           {s.score_breakdown.composite && (
             <p className="text-xs text-slate-400 dark:text-slate-600 mt-4 font-mono">
               Composite weights:{" "}
-              {Object.entries(s.score_breakdown.composite.weights)
+              {Object.entries(s.score_breakdown.composite.weights ?? {})
                 .map(([k, w]) => `${label(k)} ${(w * 100).toFixed(0)}%`)
                 .join(" + ")}
             </p>
