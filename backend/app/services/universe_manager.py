@@ -26,7 +26,7 @@ from bs4 import BeautifulSoup
 logger = logging.getLogger(__name__)
 
 MIN_ADV_USD = 200_000.0
-CORE_UNIVERSE_LIMIT = 500
+CORE_UNIVERSE_LIMIT = 250
 ROTATION_DAYS = 3
 ROTATION_ANCHOR = date(2020, 1, 6)  # Monday
 
@@ -60,18 +60,6 @@ INDEX_SOURCES: tuple[IndexSource, ...] = (
     # The public iShares IWM holdings CSV is used as a practical current
     # Russell 2000 basket proxy; fund tracking/replication may differ slightly
     # from FTSE Russell's licensed constituent file.
-    IndexSource(
-        "russell2000",
-        "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf/latest-holdings.csv",
-        ("Ticker", "Symbol", "Ticker symbol"),
-        ("Company", "Name"),
-    ),
-    IndexSource(
-        "stoxx600",
-        "https://en.wikipedia.org/wiki/STOXX_Europe_600",
-        ("Ticker", "Ticker symbol", "Symbol"),
-        ("Company", "Name"),
-    ),
 )
 
 MAJOR_ETFS: Mapping[str, str] = {
@@ -240,12 +228,7 @@ def select_refresh_tickers(
     rotation_days: int = ROTATION_DAYS,
     minimum_adv_usd: float = MIN_ADV_USD,
 ) -> list[str]:
-    """Select daily core, user-held, queued, and one extended rotation batch.
-
-    Core ranking is descending by measured USD ADV, then market cap, with
-    ticker as a deterministic tie-breaker. Missing metrics sort last. The
-    3-day slot counts trading weekdays only. Complexity is ``O(U log U)``.
-    """
+    """Select the capped core, major ETFs, and user-held or user-added symbols."""
     if core_limit < 1:
         raise ValueError("core_limit must be at least 1")
     high_priority, normal_priority = select_refresh_cohorts(
@@ -270,62 +253,36 @@ def select_refresh_cohorts(
     rotation_days: int = ROTATION_DAYS,
     minimum_adv_usd: float = MIN_ADV_USD,
 ) -> tuple[list[str], list[str]]:
-    """Return disjoint ``(high_priority, normal_priority)`` daily cohorts.
-
-    All S&P 500, NASDAQ-100 and curated major ETF members are daily assets,
-    regardless of the legacy tier flag. Saved portfolio tickers and explicit
-    on-demand queue entries are also always daily, even when their liquidity
-    is unknown or below the screener threshold. The rotating cohort contains
-    eligible extended members for the current weekday slot, excluding every
-    high-priority ticker. In the deployed schema saved configurations live in
-    ``portfolios``; every row is active because that table has no archive flag.
-
-    ``core_limit`` applies only to fallback ``tier=core`` rows without one of
-    the explicit daily index/ETF memberships. Complexity is ``O(U log U + P)``
-    for U memberships and P portfolio/queued symbols.
-    """
+    """Keep 250 large index stocks, major ETFs, and symbols chosen by the user."""
     if core_limit < 1:
         raise ValueError("core_limit must be at least 1")
-    slot = trading_day_slot(run_date or date.today(), rotation_days)
-    daily_memberships = {"sp500", "nasdaq100", "major_etf"}
-    explicit_daily = [
+    index_memberships = {"sp500", "nasdaq100"}
+    core_candidates = [
         row for row in memberships
-        if daily_memberships.intersection(
-            {str(item).lower() for item in (row.get("memberships") or [])}
-        )
+        if row.get("asset_type") == "equity"
+        and index_memberships.intersection({str(item).lower() for item in (row.get("memberships") or [])})
     ]
-    fallback_core = [
-        row for row in memberships
-        if row.get("tier") == "core"
-        and not daily_memberships.intersection(
-            {str(item).lower() for item in (row.get("memberships") or [])}
-        )
-        and (row.get("adv_usd") is None or is_liquid_enough(row.get("adv_usd"), minimum_adv_usd))
-    ]
-    fallback_core.sort(key=lambda row: (
-        -(float(row.get("adv_usd") or 0.0)),
-        -(float(row.get("market_cap_usd") or 0.0)),
+    core_candidates.sort(key=lambda row: (
+        -(float(row["market_cap_usd"]) if row.get("market_cap_usd") is not None else float("-inf")),
+        -(float(row["adv_usd"]) if row.get("adv_usd") is not None else float("-inf")),
         str(row.get("ticker", "")),
     ))
-    high = [normalize_ticker(row.get("ticker")) for row in explicit_daily]
-    high.extend(normalize_ticker(row.get("ticker")) for row in fallback_core[:core_limit])
-    high.extend(normalize_ticker(ticker) for ticker in portfolio_tickers)
-    high.extend(normalize_ticker(ticker) for ticker in queued_tickers)
-    high_priority = list(dict.fromkeys(ticker for ticker in high if ticker))
-    high_set = set(high_priority)
-
-    normal_priority = []
-    for row in memberships:
-        ticker = normalize_ticker(row.get("ticker"))
-        if (
-            ticker
-            and ticker not in high_set
-            and row.get("tier") == "extended"
-            and int(row.get("rotation_batch", -1)) == slot
-            and (row.get("adv_usd") is None or is_liquid_enough(row.get("adv_usd"), minimum_adv_usd))
-        ):
-            normal_priority.append(ticker)
-    return high_priority, list(dict.fromkeys(normal_priority))
+    core = [normalize_ticker(row.get("ticker")) for row in core_candidates[:core_limit]]
+    etfs = [
+        normalize_ticker(row.get("ticker")) for row in memberships
+        if row.get("asset_type") == "etf"
+        and "major_etf" in {str(item).lower() for item in (row.get("memberships") or [])}
+    ]
+    user_symbols = [
+        normalize_ticker(row.get("ticker")) for row in memberships
+        if "user_search" in {str(item).lower() for item in (row.get("memberships") or [])}
+    ]
+    portfolio = sorted(set(filter(None, (normalize_ticker(ticker) for ticker in portfolio_tickers))))
+    queued = sorted(set(filter(None, (normalize_ticker(ticker) for ticker in queued_tickers))))
+    allowed = set(filter(None, [*core, *etfs, *user_symbols, *portfolio]))
+    high_priority = list(dict.fromkeys([*portfolio, *core, *etfs, *user_symbols]))
+    high_priority.extend(ticker for ticker in queued if ticker in allowed)
+    return list(dict.fromkeys(high_priority)), []
 
 
 async def load_portfolio_tickers(client: Any) -> set[str]:
@@ -591,6 +548,21 @@ class UniverseManager:
             row["adv_usd"] = prior.get("adv_usd")
             row["market_cap_usd"] = prior.get("market_cap_usd")
 
+        core_candidates = sorted(
+            (row for row in universe.values()
+             if row["asset_type"] == "equity"
+             and {"sp500", "nasdaq100"}.intersection({str(item).lower() for item in row["memberships"]})),
+            key=lambda row: (
+                -(float(row["market_cap_usd"]) if row.get("market_cap_usd") is not None else float("-inf")),
+                -(float(row["adv_usd"]) if row.get("adv_usd") is not None else float("-inf")),
+                row["ticker"],
+            ),
+        )
+        core_tickers = {row["ticker"] for row in core_candidates[:CORE_UNIVERSE_LIMIT]}
+        core_tickers.update(
+            row["ticker"] for row in universe.values()
+            if row["asset_type"] == "etf" and "major_etf" in {str(item).lower() for item in row["memberships"]}
+        )
         new_stocks = [
             {
                 "ticker": row["ticker"],
@@ -598,7 +570,7 @@ class UniverseManager:
                 "is_benchmark": False,
                 "asset_type": row["asset_type"],
                 "currency": "USD" if row["asset_type"] == "etf" or any(
-                    item in row["memberships"] for item in ("sp500", "nasdaq100", "russell2000")
+                    item in row["memberships"] for item in ("sp500", "nasdaq100")
                 ) else None,
                 # Becomes active after a successful first price refresh.
                 "status": "pending_refresh",
@@ -609,22 +581,6 @@ class UniverseManager:
         await self._upsert_batches(client, "stocks", new_stocks, "ticker")
 
         memberships = []
-        core_candidates = sorted(
-            (row for row in universe.values() if row["core_candidate"] and row["asset_type"] == "equity"),
-            # Existing measured USD ADV / market cap rank known members;
-            # new members without measurements sort last deterministically.
-            key=lambda row: (
-                -(float(row.get("adv_usd") or 0.0)),
-                -(float(row.get("market_cap_usd") or 0.0)),
-                row["ticker"],
-            ),
-        )
-        core_tickers = {row["ticker"] for row in core_candidates[:CORE_UNIVERSE_LIMIT]}
-        daily_memberships = {"sp500", "nasdaq100", "major_etf"}
-        core_tickers.update(
-            row["ticker"] for row in universe.values()
-            if daily_memberships.intersection({str(item).lower() for item in row["memberships"]})
-        )
         for row in universe.values():
             memberships.append({
                 "ticker": row["ticker"],
@@ -647,9 +603,8 @@ class UniverseManager:
             # delisted. Preserve the catalog until every configured source
             # has refreshed successfully.
             logger.warning("Skipping universe pruning because one or more index sources failed")
-        # Index/ETF core and user portfolio symbols get the high-priority
-        # daily queue. The remaining extended universe is selected separately
-        # by DataPipelineOrchestrator in its stable 3-day rotating batch.
+        # Only the capped core, major ETFs, and saved portfolio symbols enter
+        # the refresh queue. Extended index members remain metadata only.
         portfolio_tickers = await load_portfolio_tickers(client)
         high_priority_tickers = sorted(core_tickers | portfolio_tickers)
         await self._enqueue_refresh_tickers(client, high_priority_tickers)

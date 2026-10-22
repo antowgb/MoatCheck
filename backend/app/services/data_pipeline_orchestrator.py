@@ -655,11 +655,10 @@ class DataPipelineOrchestrator:
                 await result
 
     async def load_tickers(self) -> list[str]:
-        """Select the scheduled daily cohort without exceeding provider budgets.
+        """Select the capped market core, major ETFs, and user symbols.
 
         An explicit ``PIPELINE_TICKERS`` list remains an operator override.
-        Otherwise, core holdings and user portfolios run daily while the
-        extended universe rotates through one weekday batch in three.
+        Extended index members remain catalog metadata without price refreshes.
         """
         if self.ticker_list:
             self.last_refresh_cohorts = {"high": list(dict.fromkeys(self.ticker_list)), "normal": []}
@@ -685,7 +684,7 @@ class DataPipelineOrchestrator:
             # fall back to an unbounded all-stock refresh.
             logger.exception("Universe membership table unavailable; using capped active stocks")
             query = (client.table("stocks").select("ticker").eq("status", "active")
-                     .order("ticker").limit(int(os.getenv("UNIVERSE_CORE_LIMIT", "500"))))
+                     .order("ticker").limit(int(os.getenv("UNIVERSE_CORE_LIMIT", "250"))))
             result = query.execute()
             if hasattr(result, "__await__"):
                 result = await result
@@ -713,7 +712,7 @@ class DataPipelineOrchestrator:
             memberships,
             portfolio_tickers=sorted(portfolio_tickers),
             queued_tickers=sorted(queued_tickers),
-            core_limit=int(os.getenv("UNIVERSE_CORE_LIMIT", "500")),
+            core_limit=int(os.getenv("UNIVERSE_CORE_LIMIT", "250")),
             rotation_days=int(os.getenv("UNIVERSE_ROTATION_DAYS", "3")),
             minimum_adv_usd=float(os.getenv("MIN_ADV_USD", "200000")),
         )

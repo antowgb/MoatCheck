@@ -45,7 +45,7 @@ jobs:
           TIINGO_API_KEY: ${{ secrets.TIINGO_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           EDGAR_CONTACT_EMAIL: ${{ secrets.EDGAR_CONTACT_EMAIL }}
-          UNIVERSE_CORE_LIMIT: "500"
+          UNIVERSE_CORE_LIMIT: "250"
           UNIVERSE_ROTATION_DAYS: "3"
           MIN_ADV_USD: "200000"
           YFINANCE_DAILY_LIMIT: "1800"
