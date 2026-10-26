@@ -333,12 +333,42 @@ def normalize_sector(value: str | None) -> str | None:
 def fetch_stock_info(ticker: str) -> dict[str, Any] | None:
     """Fetches OVERVIEW + INCOME_STATEMENT + BALANCE_SHEET + CASH_FLOW + EARNINGS.
 
-    None if the ticker is invalid (empty OVERVIEW). Returns a combined dict whose
-    4 financial statements are used to rebuild the quarterly history. Raises
+    None if the ticker is invalid (empty OVERVIEW). If OVERVIEW is denied by
+    the current plan, stored metadata (or the ticker symbol) is used instead.
+    Returns a combined dict whose 4 financial statements rebuild the quarterly
+    history. Raises
     ``QuotaExceeded`` if the daily quota is exhausted along the way.
     """
     client = _get_client()
-    overview = client.get("OVERVIEW", ticker)
+    try:
+        overview = client.get("OVERVIEW", ticker)
+    except ProviderAccessError as exc:
+        if "OVERVIEW" not in str(exc):
+            raise
+        # OVERVIEW is optional metadata; the financial statement endpoints
+        # remain usable when the current Alpha Vantage plan does not include it.
+        # Keep previously known metadata for active tickers, and use the ticker
+        # as a safe identity for newly queued tickers.
+        logger.warning(
+            "Ticker %s: Alpha Vantage OVERVIEW is unavailable on this plan; "
+            "continuing with stored metadata and financial statements.", ticker,
+        )
+        rows = (
+            get_supabase().table("stocks")
+            .select("name,sector,industry,currency")
+            .eq("ticker", ticker)
+            .limit(1)
+            .execute()
+            .data
+        )
+        stored = rows[0] if rows else {}
+        overview = {
+            "Symbol": ticker,
+            "Name": stored.get("name") or ticker,
+            "Sector": stored.get("sector"),
+            "Industry": stored.get("industry"),
+            "Currency": stored.get("currency"),
+        }
     # Empty OVERVIEW ({} or no Symbol) => invalid/not found ticker.
     if not overview or not overview.get("Symbol"):
         logger.warning("Ticker %s: empty OVERVIEW — likely invalid.", ticker)
