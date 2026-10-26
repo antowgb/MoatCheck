@@ -1,0 +1,20 @@
+# Runtime dependencies used by the scheduled refresh + score recompute job.
+# Keep the full development/test dependency set in requirements.txt.
+fastapi>=0.115
+yfinance>=0.2.50
+pandas>=2.2
+beautifulsoup4>=4.12
+numpy>=1.26,<2.5
+supabase>=2.6
+python-dotenv>=1.0
+pydantic>=2.7
+httpx>=0.27
+scipy>=1.11
+groq>=0.11
+feedparser>=6.0
+
+# Optional Gmail collector imports its client lazily, but keep its dependencies
+# available for any enabled newsletter source in the workflow environment.
+google-api-python-client>=2.100
+google-auth>=2.30
+google-auth-oauthlib>=1.2

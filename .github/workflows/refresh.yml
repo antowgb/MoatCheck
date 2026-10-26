@@ -48,13 +48,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          # requirements.txt pulls pandas/numpy/scipy/yfinance/google-api-*.
-          # Uncached, that install cost ~60-90s on every single run.
+          # Cache against the focused runtime set for this scheduled job.
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: backend/requirements-refresh.txt
 
       - name: Install dependencies
-        run: pip install -r backend/requirements.txt
+        run: python -m pip install -r backend/requirements-refresh.txt
 
       # `continue-on-error` preserves the export if refresh exits non-zero on
       # any single ticker failure (e.g.
